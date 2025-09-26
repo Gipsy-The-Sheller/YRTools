@@ -1,0 +1,77 @@
+/* 基础全局样式 */
+QMainWindow {
+    background: #f0f2f5;
+}
+
+QTreeWidget {
+    background: white;
+    border-right: 1px solid #ebeef5;
+    padding: 10px 0;
+}
+
+QTreeWidget::item {
+    height: 35px;
+    padding-left: 15px;
+}
+
+QTreeWidget::item:hover {
+    background: #f5f7fa;
+}
+
+QTabWidget::pane {
+    border: 1px solid #ddd;
+}
+
+QTabBar {
+    background:white;  /* 选项卡栏背景色 */
+    border-bottom: 1px solid #ddd;
+    padding: 2px 0;
+    spacing: 6px;  /* 选项卡间距 */
+}
+
+QTabBar::tab {
+    background: #cfd8dc;  /* 比选项卡栏稍亮 */
+    border: none;
+    padding: 6px 28px 6px 6px;  /* 统一左侧padding */
+    margin-right: 0;
+    min-width: 120px;  /* 最小宽度120px */
+    max-width: 200px;  /* 最大宽度限制 */
+    font-size: 13px;
+    font-family: MiSans Medium;
+    border-radius: 4px;  /* 选项卡圆角 */
+}
+
+QTabBar::tab:selected {
+    background: #eceff1;  /* 比普通选项卡更亮 */
+    border-bottom-color: white;
+}
+
+QTabBar::close-button {
+    font-family: MiSans Medium;
+    font-size: 12px;
+    color: #666;
+    padding: 0 4px;
+    subcontrol-position: right;
+    margin: 2px;
+    qproperty-icon: none;   
+}
+
+QTabBar::close-button:hover {
+    background: #e81123;
+    color: white;
+    border-radius: 2px;
+}
+
+QTabBar::tab:has-icon {
+    padding-left: 24px;  /* 图标+间距 */
+    background-position: left 6px center;  /* 图标位置 */
+    background-repeat: no-repeat;
+    background-size: 16px 16px;
+}
+
+QTabBar::tab[hasIcon="true"] {
+    padding-left: 24px;
+    background-position: left 6px center;
+} 
+
+
