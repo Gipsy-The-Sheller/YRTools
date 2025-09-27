@@ -11,30 +11,30 @@
         stroke-miterlimit: 10;
       }
 
-      .cls-1, .cls-3 {
-        stroke: #c6afd4;
+      .cls-1, .cls-4 {
+        stroke: #b13e43;
       }
 
-      .cls-2, .cls-4 {
-        stroke: #87caed;
+      .cls-5 {
+        fill: #b13e43;
+        stroke-width: 0px;
+      }
+
+      .cls-2, .cls-3 {
+        stroke: #4c638c;
       }
 
       .cls-3, .cls-4 {
         stroke-width: 4px;
       }
-
-      .cls-5 {
-        fill: #c6afd4;
-        stroke-width: 0px;
-      }
     </style>
   </defs>
   <g>
-    <circle class="cls-4" cx="21.3" cy="22.9" r="7.8"/>
+    <circle class="cls-3" cx="21.3" cy="22.9" r="7.8"/>
     <line class="cls-2" x1="13.5" y1="22.9" x2=".4" y2="22.9"/>
   </g>
   <g>
-    <path class="cls-3" d="M10.7,33.3c5.7,5.7,15.2,5.7,20.9,0,5.7-5.7,5.7-15.2,0-20.9-5.7-5.7-15.2-5.7-20.9,0"/>
+    <path class="cls-4" d="M10.7,33.3c5.7,5.7,15.2,5.7,20.9,0,5.7-5.7,5.7-15.2,0-20.9-5.7-5.7-15.2-5.7-20.9,0"/>
     <g>
       <line class="cls-1" x1="35.9" y1="22.9" x2="40.7" y2="22.9"/>
       <polygon class="cls-5" points="39.8 25.8 45 22.9 39.8 19.9 39.8 25.8"/>
