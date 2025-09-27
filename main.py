@@ -47,6 +47,12 @@ import matplotlib.backends.backend_qt5agg
 import matplotlib.figure
 from plotnine import *
 
+# allow using customized python libraries
+try:
+    sys.path.append("runtime/base")
+except Exception as e:
+    print(f"❌ Failed to add basic runtime environment: {str(e)}")
+
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s [%(threadName)s] %(name)s.%(funcName)s:%(lineno)d - %(levelname)s - %(message)s',
@@ -319,6 +325,7 @@ class MainWindow(QMainWindow):
                 plugin_instance.plugin_path = plugin['dir']
                 print(f"Successfully initialized: {plugin['meta']['name']}")
                 widget = plugin_instance.run()
+                # widget.init_ui()
                     
             else:
                 raise ValueError(f"Unknown plugin type: {plugin_type}")

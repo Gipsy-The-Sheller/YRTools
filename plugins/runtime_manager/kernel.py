@@ -71,7 +71,9 @@ class ModuleEditor(QDialog):
         • Module Name: Python package name<br>
         • Version: Module version information<br>
         • Module Path: Path to the folder containing the Python module<br>
-        • Module Type: A path will be specified if it's a common module, to run the programs in the folder directly
+        • Module Type: <br>
+        &nbsp;&nbsp;- <b>Python Package</b>: Standard Python package (import package_name)<br>
+        &nbsp;&nbsp;- <b>Common Module</b>: Scripts/binaries that need direct execution
         """)
         info_label.setStyleSheet("color: #666; font-size: 12px; margin: 10px 0;")
         layout.addWidget(info_label)
@@ -164,9 +166,10 @@ class RuntimeManagerPlugin(QWidget):
         for path in sys.path:
             if path.startswith(runtime_base):
                 rel_path = os.path.relpath(path, runtime_base)
-                env_name = rel_path.split(os.sep)[0] if os.sep in rel_path else rel_path
+                path_parts = rel_path.split(os.sep)
                 
-                if env_name and env_name != '.':
+                if len(path_parts) >= 1 and path_parts[0] != '.':
+                    env_name = path_parts[0]
                     self.activated_environments.add(env_name)
                     print(f"Detected activated environment: {env_name}")
         
@@ -378,7 +381,6 @@ class RuntimeManagerPlugin(QWidget):
             delete_action.triggered.connect(lambda: self.delete_module(item))
             
         elif hasattr(item, 'env_name'):  # custom environment project
-            # 根据激活状态显示不同的菜单
             if item.env_name in self.activated_environments:
                 deactivate_action = menu.addAction(QIcon("./icons/deactivate.svg"), "Deactivate")
                 deactivate_action.triggered.connect(lambda: self.deactivate_environment(item))
@@ -538,24 +540,56 @@ class RuntimeManagerPlugin(QWidget):
         env_name = item.env_name
         env_dir = os.path.join(os.getcwd(), 'runtime', env_name)
         
-        if os.path.exists(env_dir):
+        if not os.path.exists(env_dir):
+            QMessageBox.warning(self, "Environment Not Found", 
+                              f"Environment directory not found: {env_dir}")
+            return
+        
+        added_paths = []
+        
+        # 获取环境中的所有模块信息
+        modules = self.environments['custom'].get(env_name, {})
+        
+        for module_name, module_data in modules.items():
+            module_type = module_data.get('type', 'package')
+            module_path = module_data.get('path', '')
+            
+            if not module_path or not os.path.exists(module_path):
+                continue
+            
+            if module_type == 'package':
+                # Python Package: 添加模块目录到sys.path
+                if module_path not in sys.path:
+                    sys.path.insert(0, module_path)
+                    added_paths.append(module_path)
+            elif module_type == 'common':
+                # Common Module: 添加模块目录到sys.path（用于直接调用脚本）
+                if module_path not in sys.path:
+                    sys.path.insert(0, module_path)
+                    added_paths.append(module_path)
+        
+        # 如果没有模块信息，使用传统方法（向后兼容）
+        if not modules:
             if env_dir not in sys.path:
                 sys.path.insert(0, env_dir)
+                added_paths.append(env_dir)
             
             for module_name in os.listdir(env_dir):
                 module_path = os.path.join(env_dir, module_name)
                 if os.path.isdir(module_path) and module_path not in sys.path:
                     sys.path.insert(0, module_path)
-            
-            # update activate status
-            self.activated_environments.add(env_name)
-            self.refresh_tree()  # 刷新显示状态
-            
+                    added_paths.append(module_path)
+        
+        # update activate status
+        self.activated_environments.add(env_name)
+        self.refresh_tree()
+        
+        if added_paths:
             QMessageBox.information(self, "Environment Activated", 
-                                  f"Environment '{env_name}' has been activated.\nPython path updated.")
+                                  f"Environment '{env_name}' has been activated.\nAdded {len(added_paths)} paths to Python path.")
         else:
-            QMessageBox.warning(self, "Environment Not Found", 
-                              f"Environment directory not found: {env_dir}")
+            QMessageBox.information(self, "Environment Activated", 
+                                  f"Environment '{env_name}' was already activated.")
     
     def deactivate_environment(self, item):
         """去激活环境 - 从sys.path中移除环境路径"""
@@ -564,22 +598,36 @@ class RuntimeManagerPlugin(QWidget):
         
         removed_paths = []
         
-        # 从sys.path中移除环境目录
-        if env_dir in sys.path:
-            sys.path.remove(env_dir)
-            removed_paths.append(env_dir)
+        # 获取环境中的所有模块信息
+        modules = self.environments['custom'].get(env_name, {})
         
-        # 移除环境中的模块目录
-        if os.path.exists(env_dir):
-            for module_name in os.listdir(env_dir):
-                module_path = os.path.join(env_dir, module_name)
-                if os.path.isdir(module_path) and module_path in sys.path:
-                    sys.path.remove(module_path)
-                    removed_paths.append(module_path)
+        # 根据模块信息移除路径
+        for module_name, module_data in modules.items():
+            module_type = module_data.get('type', 'package')
+            module_path = module_data.get('path', '')
+            
+            if module_path and module_path in sys.path:
+                sys.path.remove(module_path)
+                removed_paths.append(module_path)
+        
+        # 如果没有模块信息，使用传统方法（向后兼容）
+        if not modules:
+            # 从sys.path中移除环境目录
+            if env_dir in sys.path:
+                sys.path.remove(env_dir)
+                removed_paths.append(env_dir)
+            
+            # 移除环境中的模块目录
+            if os.path.exists(env_dir):
+                for module_name in os.listdir(env_dir):
+                    module_path = os.path.join(env_dir, module_name)
+                    if os.path.isdir(module_path) and module_path in sys.path:
+                        sys.path.remove(module_path)
+                        removed_paths.append(module_path)
         
         # 更新激活状态
         self.activated_environments.discard(env_name)
-        self.refresh_tree()  # 刷新显示状态
+        self.refresh_tree()
         
         if removed_paths:
             QMessageBox.information(self, "Environment Deactivated", 
