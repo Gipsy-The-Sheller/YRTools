@@ -1,2 +1,4 @@
 *.pyc
 *.log
+test_*.py
+./runtime
