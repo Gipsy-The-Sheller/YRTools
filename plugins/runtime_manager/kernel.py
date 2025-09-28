@@ -158,11 +158,10 @@ class RuntimeManagerPlugin(QWidget):
     
     def init_env(self):
         """
-        When YR Runtime Manager is closed abruptly, activated environments will be remained in sys.path.
-        Thus, we need to scan sys.path and initialize activated environments when openning a new instance of YR Runtime Manager.
+        When YR Runtime Manager is closed abruptly, activated environments will be remained in sys.path and PATH.
+        Thus, we need to scan both sys.path and PATH environment variable to initialize activated environments.
         """
         runtime_base = os.path.join(os.getcwd(), 'runtime')
-        
         for path in sys.path:
             if path.startswith(runtime_base):
                 rel_path = os.path.relpath(path, runtime_base)
@@ -171,7 +170,50 @@ class RuntimeManagerPlugin(QWidget):
                 if len(path_parts) >= 1 and path_parts[0] != '.':
                     env_name = path_parts[0]
                     self.activated_environments.add(env_name)
-                    print(f"Detected activated environment: {env_name}")
+                    print(f"Detected activated environment from sys.path: {env_name}")
+
+            elif path.startswith('runtime'):
+                rel_path = os.path.relpath(path, 'runtime')
+                path_parts = rel_path.split(os.sep)
+                
+                if len(path_parts) >= 1 and path_parts[0] != '.':
+                    env_name = path_parts[0]
+                    self.activated_environments.add(env_name)
+                    print(f"Detected activated environment from sys.path (relative): {env_name}")
+        
+        current_path = os.environ.get('PATH', '')
+        for path in current_path.split(os.pathsep):
+            if path.startswith(runtime_base):
+                rel_path = os.path.relpath(path, runtime_base)
+                path_parts = rel_path.split(os.sep)
+                
+                if len(path_parts) >= 1 and path_parts[0] != '.':
+                    env_name = path_parts[0]
+                    self.activated_environments.add(env_name)
+                    print(f"Detected activated environment from PATH: {env_name}")
+
+            elif path.startswith('runtime'):
+                rel_path = os.path.relpath(path, 'runtime')
+                path_parts = rel_path.split(os.sep)
+                
+                if len(path_parts) >= 1 and path_parts[0] != '.':
+                    env_name = path_parts[0]
+                    self.activated_environments.add(env_name)
+                    print(f"Detected activated environment from PATH (relative): {env_name}")
+        
+        # base environment should also be checked
+        base_env_path = os.path.join(runtime_base, 'base')
+        if os.path.exists(base_env_path):
+            has_modules = False
+            for item in os.listdir(base_env_path):
+                item_path = os.path.join(base_env_path, item)
+                if os.path.isdir(item_path):
+                    has_modules = True
+                    break
+            
+            if has_modules:
+                self.activated_environments.add('base')
+                print(f"Detected base environment with modules")
         
         if self.activated_environments:
             print(f"Found {len(self.activated_environments)} activated environments: {', '.join(self.activated_environments)}")
@@ -546,6 +588,13 @@ class RuntimeManagerPlugin(QWidget):
             return
         
         added_paths = []
+        added_env_paths = []
+        
+        # 首先添加环境目录本身到sys.path
+        if env_dir not in sys.path:
+            sys.path.insert(0, env_dir)
+            added_paths.append(env_dir)
+            print(f"Adding environment directory to sys.path: {env_dir}")
         
         # 获取环境中的所有模块信息
         modules = self.environments['custom'].get(env_name, {})
@@ -553,22 +602,36 @@ class RuntimeManagerPlugin(QWidget):
         for module_name, module_data in modules.items():
             module_type = module_data.get('type', 'package')
             module_path = module_data.get('path', '')
+
+            # check if the module path is relative to the environment directory
+            if module_path.startswith(env_dir):
+                module_path = os.path.join(os.getcwd(), module_path)
             
             if not module_path or not os.path.exists(module_path):
                 continue
             
             if module_type == 'package':
-                # Python Package: 添加模块目录到sys.path
+                # Python Package: Add module directory to sys.path
                 if module_path not in sys.path:
+                    print(f"Adding Python package to sys.path: {module_path}")
                     sys.path.insert(0, module_path)
                     added_paths.append(module_path)
             elif module_type == 'common':
-                # Common Module: 添加模块目录到sys.path（用于直接调用脚本）
+                # Common Module: Add module directory to sys.path and PATH environment variable
                 if module_path not in sys.path:
                     sys.path.insert(0, module_path)
                     added_paths.append(module_path)
+                
+                # Add to PATH environment variable
+                current_path = os.environ.get('PATH', '')
+                if module_path not in current_path:
+                    if current_path:
+                        os.environ['PATH'] = module_path + os.pathsep + current_path
+                    else:
+                        os.environ['PATH'] = module_path
+                    added_env_paths.append(module_path)
         
-        # 如果没有模块信息，使用传统方法（向后兼容）
+        # If there is no module information, use the traditional method (backward compatibility)
         if not modules:
             if env_dir not in sys.path:
                 sys.path.insert(0, env_dir)
@@ -584,9 +647,16 @@ class RuntimeManagerPlugin(QWidget):
         self.activated_environments.add(env_name)
         self.refresh_tree()
         
-        if added_paths:
-            QMessageBox.information(self, "Environment Activated", 
-                                  f"Environment '{env_name}' has been activated.\nAdded {len(added_paths)} paths to Python path.")
+        if added_paths or added_env_paths:
+            message = f"Environment '{env_name}' has been activated.\n"
+            if added_paths:
+                message += f"Added {len(added_paths)} paths to Python path.\n"
+            if added_env_paths:
+                message += f"Added {len(added_env_paths)} paths to PATH environment variable."
+            QMessageBox.information(self, "Environment Activated", message)
+            print(f"Environment '{env_name}' has been activated.\n")
+            print(f"Sys.path: {sys.path}")
+            print(f"PATH: {os.environ.get('PATH')}")
         else:
             QMessageBox.information(self, "Environment Activated", 
                                   f"Environment '{env_name}' was already activated.")
@@ -597,6 +667,13 @@ class RuntimeManagerPlugin(QWidget):
         env_dir = os.path.join(os.getcwd(), 'runtime', env_name)
         
         removed_paths = []
+        removed_env_paths = []
+        
+        # 首先移除环境目录本身
+        if env_dir in sys.path:
+            sys.path.remove(env_dir)
+            removed_paths.append(env_dir)
+            print(f"Removing environment directory from sys.path: {env_dir}")
         
         # 获取环境中的所有模块信息
         modules = self.environments['custom'].get(env_name, {})
@@ -606,9 +683,21 @@ class RuntimeManagerPlugin(QWidget):
             module_type = module_data.get('type', 'package')
             module_path = module_data.get('path', '')
             
-            if module_path and module_path in sys.path:
-                sys.path.remove(module_path)
-                removed_paths.append(module_path)
+            if module_path:
+                # 从sys.path移除
+                if module_path in sys.path:
+                    sys.path.remove(module_path)
+                    removed_paths.append(module_path)
+                
+                # 从PATH环境变量移除
+                if module_type == 'common':
+                    current_path = os.environ.get('PATH', '')
+                    if module_path in current_path:
+                        # 移除路径并重新设置PATH
+                        path_parts = current_path.split(os.pathsep)
+                        path_parts = [p for p in path_parts if p != module_path]
+                        os.environ['PATH'] = os.pathsep.join(path_parts)
+                        removed_env_paths.append(module_path)
         
         # 如果没有模块信息，使用传统方法（向后兼容）
         if not modules:
@@ -629,12 +718,16 @@ class RuntimeManagerPlugin(QWidget):
         self.activated_environments.discard(env_name)
         self.refresh_tree()
         
-        if removed_paths:
-            QMessageBox.information(self, "Environment Deactivated", 
-                                  f"Environment '{env_name}' has been deactivated.\nRemoved {len(removed_paths)} paths from Python path.")
+        if removed_paths or removed_env_paths:
+            message = f"Environment '{env_name}' has been deactivated.\n"
+            if removed_paths:
+                message += f"Removed {len(removed_paths)} paths from Python path.\n"
+            if removed_env_paths:
+                message += f"Removed {len(removed_env_paths)} paths from PATH environment variable."
+            QMessageBox.information(self, "Environment Deactivated", message)
         else:
             QMessageBox.information(self, "Environment Deactivated", 
-                                  f"Environment '{env_name}' was not in Python path.")
+                                  f"Environment '{env_name}' was not activated.")
     
     def load_environments(self):
         path = os.path.join(os.getcwd(), 'plugins', 'runtime_manager', 'environments.json')

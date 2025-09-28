@@ -49,9 +49,38 @@ from plotnine import *
 
 # allow using customized python libraries
 try:
-    sys.path.append("runtime/base")
+    runtime_base_path = "runtime/base"
+    if os.path.exists(runtime_base_path):
+        # 扫描runtime/base目录中的所有模块
+        for item in os.listdir(runtime_base_path):
+            item_path = os.path.join(runtime_base_path, item)
+            if os.path.isdir(item_path):
+                # 检查是否为Python包（有__init__.py）
+                init_file = os.path.join(item_path, "__init__.py")
+                if os.path.exists(init_file):
+                    # Python Package: 添加到sys.path
+                    if item_path not in sys.path:
+                        sys.path.insert(0, item_path)
+                        print(f"✅ Added Python package to sys.path: {item}")
+                else:
+                    # Common Module: 添加到sys.path和PATH环境变量
+                    if item_path not in sys.path:
+                        sys.path.insert(0, item_path)
+                        print(f"✅ Added common module to sys.path: {item}")
+                    
+                    # 添加到PATH环境变量
+                    current_path = os.environ.get('PATH', '')
+                    if item_path not in current_path:
+                        if current_path:
+                            os.environ['PATH'] = item_path + os.pathsep + current_path
+                        else:
+                            os.environ['PATH'] = item_path
+                        print(f"✅ Added common module to PATH: {item}")
+    else:
+        print("⚠️ Runtime base directory not found, creating...")
+        os.makedirs(runtime_base_path, exist_ok=True)
 except Exception as e:
-    print(f"❌ Failed to add basic runtime environment: {str(e)}")
+    print(f"❌ Failed to initialize runtime environment: {str(e)}")
 
 logging.basicConfig(
     level=logging.DEBUG,
