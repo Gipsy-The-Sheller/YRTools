@@ -27,6 +27,7 @@ from core.custom_tabbar import ChromeTabBar
 import inspect
 import logging
 from core.crash_handler import handle_exception
+from core.config_loader import config_loader
 
 # basic plugin dependencies
 ## NOTE: This part may be removed from source code after the development of YRRuntimeManager
@@ -97,43 +98,14 @@ print("Root:", BASE_DIR)
 print("Python path:", sys.path)
 
 def scan_plugins():
-    plugins = []
-    print("🔍 Scanning plugins...")
+    """
+    扫描所有插件，支持INI和JSON配置格式
+    返回统一的插件配置列表
+    """
+    print("🔍 Scanning plugins with enhanced config loader...")
     
-    for dir_name in os.listdir("plugins"):
-        dir_path = os.path.join("plugins", dir_name)
-        print(f"  - Checking directory: {dir_path}")
-        
-        config_path = os.path.join(dir_path, "settings.ini")
-        if not os.path.isfile(config_path):
-            print(f"    ❌ settings.ini not found. Skipping {dir_name}")
-            continue
-            
-        try:
-            config = ConfigParser()
-            config.read(config_path, encoding='utf-8')
-            
-            required_sections = ['metadata', 'placement', 'runtime']
-            for section in required_sections:
-                if not config.has_section(section):
-                    raise ValueError(f"Missing required configuration fields [{section}]")
-                    
-            plugin_data = {
-                'dir': dir_path,
-                'config': config,
-                'meta': dict(config['metadata']),
-                'placement': dict(config['placement']),
-                'runtime': dict(config['runtime'])
-            }
-            if plugin_data['placement']['path'] == '':
-                plugin_data['placement']['path'] = 'Plugins'
-            else:
-                plugin_data['placement']['path'] = 'Plugins/' + plugin_data['placement']['path']
-            plugins.append(plugin_data)
-            print(f"    ✅ Successfully loaded plugin: {plugin_data['meta']['name']}")
-            
-        except Exception as e:
-            print(f"    ❌ Plugin {dir_name} load failed: {str(e)}")
+    # 使用新的配置加载器
+    plugins = config_loader.get_all_plugins("plugins")
     
     print(f"Scanning completed! Found a total of {len(plugins)} valid plugins.")
     return plugins
@@ -229,14 +201,16 @@ class MainWindow(QMainWindow):
         self.tab_widget.removeTab(index)
 
     def load_plugins(self):
+        """
+        加载所有插件，支持新的配置格式
+        """
         plugins = []
-        for plugin in scan_plugins():
-            config = plugin['config']
-            
-            if config['runtime']['type'] == 'gui':
-                plugins.append(GUIPlugin(config))
-            # elif config['runtime']['type'] == 'cli':
-            #     plugins.append(CLIPlugin(config))
+        for plugin_config in scan_plugins():
+            # 新格式的插件配置已经是字典形式，不需要额外处理
+            if plugin_config['runtime']['type'] == 'pyplug':
+                plugins.append(PluginWrapper(plugin_config))
+            # elif plugin_config['runtime']['type'] == 'cli':
+            #     plugins.append(CLIPlugin(plugin_config))
             # This type of plugin has been abandoned
         return plugins
 
@@ -248,7 +222,7 @@ class MainWindow(QMainWindow):
         
         plugins_sorted = sorted(
             scan_plugins(),
-            key=lambda x: int(x['placement'].get('priority', '0'))
+            key=lambda x: int(x['placement'].get('priority', 0))
         )
         
         current_parent = root
@@ -296,6 +270,7 @@ class MainWindow(QMainWindow):
             plugin_item = QTreeWidgetItem(current_parent)
             plugin_item.setText(0, plugin['meta']['name'])
             
+            # 图标处理逻辑保持不变
             if os.path.exists(os.path.join(plugin['dir'], "icon/Metro_usual.svg")):
                 icon_path = os.path.join(plugin['dir'], "icon/Metro_usual.svg")
             elif 'favicon' in plugin['placement'] and plugin['placement']['favicon'] != '':
@@ -324,6 +299,7 @@ class MainWindow(QMainWindow):
         
         print(f"Plugin Information: {plugin['meta']['name']}")
         print(f"Plugin Type: {plugin['runtime']['type']}")
+        print(f"Config Type: {plugin.get('config_type', 'unknown')}")
         
         try:
             plugin_type = plugin['runtime']['type']
@@ -495,6 +471,16 @@ class MainWindow(QMainWindow):
         font_path = "fonts/MiSans-Medium.ttf"
         if QFontDatabase.addApplicationFont(font_path) == -1:
             print("❌ Failed to load fonts.")
+
+class PluginWrapper:
+    """插件包装器，兼容新的配置格式"""
+    def __init__(self, config):
+        self.config = config
+        self.name = config['meta']['name']
+        self.type = config['meta'].get('category', 'General')
+        
+    def run(self):
+        return self.config['kernel']() if 'kernel' in self.config else None
 
 class GUIPlugin:
     def __init__(self, config):
