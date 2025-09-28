@@ -1,18 +1,16 @@
 # YRTools
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-
 [![License](https://img.shields.io/badge/license-GPL-green.svg)](LICENSE)
-
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
 <img src="https://github.com/Gipsy-The-Sheller/YRTools/blob/main/icons/badge.svg" width="auto" height="50"/>
 
 YiRan Tools (abbr. YRTools) is a one-for-all plugin-based desktop platform. The aim of YRTools is to shape the outline of the next-generation bioinformatic desktop platform, but actually, it can be applied to any area you can imagine.
 
-亦然 (Chinese pinyin. yì rán) is a classical and formal adverb that means ​​"also thus," "similarly," or "likewise", which is a highly-refined abstract of the plugin-based architecture of YRTools.
+**亦然** (Chinese pinyin. yì rán) is a classical and formal adverb that means ​​"also thus," "similarly," or "likewise", which is a highly-refined abstract of the plugin-based architecture of YRTools:
 
-The main program of YRTools acts as a GUI wrapper for all its plugins, while plugin is the basic function unit of YRTools, ensuring that all functions are loosely coupled, and the platform itself is highly scalable.
+The main program of YRTools acts as a GUI wrapper for all its plugins, while plugin is the basic function unit of YRTools, ensuring that all functions are loosely coupled, and the platform itself is highly scalable. The integration of any function is fast, easy and simple.
 
 If you are interested in the plugin development of YRTools, you may go to its Github Wiki for more information.
 
