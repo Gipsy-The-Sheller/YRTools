@@ -504,7 +504,7 @@ class BridgePlugin(QWidget):
         self.output = QTextEdit()
         self.output.setReadOnly(True)
         # set fixed width font
-        font_path = "./fonts/CONSOLA.TTF"
+        font_path = "./fonts/CascadiaMonoNF-Regular.ttf"
         font_id = QFontDatabase.addApplicationFont(font_path)
         font = QFontDatabase.systemFont(QFontDatabase.FixedFont)
         if font_id != -1:
