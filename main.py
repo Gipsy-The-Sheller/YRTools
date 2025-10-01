@@ -1,3 +1,19 @@
+# YRTools.py - A one-for-all plugin-based desktop platform for (more than) bioinformatics.
+# Copyright (C) 2025  Zhi-Jie Xu, Yi-Yang Jia
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 __version__ = "0.0.2 pre-release"
 
 import sys
@@ -92,6 +108,9 @@ logging.basicConfig(
     ],
     force=True
 )
+
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.DEBUG)
 
 print("Current working dir:", os.getcwd())
 print("Root:", BASE_DIR)
@@ -209,6 +228,8 @@ class MainWindow(QMainWindow):
             # 新格式的插件配置已经是字典形式，不需要额外处理
             if plugin_config['runtime']['type'] == 'pyplug':
                 plugins.append(PluginWrapper(plugin_config))
+            elif plugin_config['runtime']['type'] == 'polypyplug':
+                plugins.append(PluginWrapper(plugin_config))
             # elif plugin_config['runtime']['type'] == 'cli':
             #     plugins.append(CLIPlugin(plugin_config))
             # This type of plugin has been abandoned
@@ -319,19 +340,62 @@ class MainWindow(QMainWindow):
                 plugin_class = getattr(module, class_name)
                 
                 sig = inspect.signature(plugin_class.__init__)
-                params = list(sig.parameters.values())
+                param_names = [p.name for p in list(sig.parameters.values())[1:]]  # skip self
+                kwargs = {}
+                if 'config' in param_names:
+                    kwargs['config'] = plugin
+                if 'plugin_path' in param_names:
+                    kwargs['plugin_path'] = plugin['dir']
                 
-                if len(params) > 1 and 'config' in params[1].name:
-                    plugin_instance = plugin_class(plugin)
-                else:
-                    plugin_instance = plugin_class()
+                plugin_instance = plugin_class(**kwargs)
                 
-                # Tell the plugin about its path so it could find its dependencies
-                plugin_instance.plugin_path = plugin['dir']
+                # Make sure plugin_path is set
+                if not hasattr(plugin_instance, 'plugin_path') or plugin_instance.plugin_path is None:
+                    plugin_instance.plugin_path = plugin['dir']
                 print(f"Successfully initialized: {plugin['meta']['name']}")
                 widget = plugin_instance.run()
                 # widget.init_ui()
                     
+            elif plugin_type == 'polypyplug':
+                # Regard the plugin as a Python site-package, which provides polymerized development experience
+                if 'entry_point' not in plugin['runtime']:
+                    raise ValueError("Poly Python plugin needs an entry_point!")
+
+                entry = plugin['runtime']['entry_point']
+                if ':' not in entry:
+                    raise ValueError("entry_point must be in format 'package.module:Class'")
+
+                module_name, class_name = entry.split(':', 1)
+
+                # 确保插件目录在 sys.path 以便包式导入
+                added_to_path = False
+                if plugin['dir'] not in sys.path:
+                    sys.path.insert(0, plugin['dir'])
+                    added_to_path = True
+
+                try:
+                    module = importlib.import_module(module_name)
+                    plugin_class = getattr(module, class_name)
+
+                    sig = inspect.signature(plugin_class.__init__)
+                    param_names = [p.name for p in list(sig.parameters.values())[1:]]  # skip self
+                    kwargs = {}
+                    if 'config' in param_names:
+                        kwargs['config'] = plugin
+                    if 'plugin_path' in param_names:
+                        kwargs['plugin_path'] = plugin['dir']
+
+                    plugin_instance = plugin_class(**kwargs)
+                    if not hasattr(plugin_instance, 'plugin_path') or plugin_instance.plugin_path is None:
+                        plugin_instance.plugin_path = plugin['dir']
+
+                    print(f"Successfully initialized: {plugin['meta']['name']}")
+                    widget = plugin_instance.run()
+                finally:
+                    # 若需严格隔离，可在此移除路径：
+                    # if added_to_path and plugin['dir'] in sys.path:
+                    #     sys.path.remove(plugin['dir'])
+                    pass
             else:
                 raise ValueError(f"Unknown plugin type: {plugin_type}")
             
