@@ -478,6 +478,8 @@ class MainWindow(QMainWindow):
         """
         
         html = template.render(content=content)
+        # enable open external links
+        self.default_workspace.setOpenExternalLinks(True)
         self.default_workspace.setText(html)
         self.default_workspace.setAlignment(Qt.AlignCenter)
 
