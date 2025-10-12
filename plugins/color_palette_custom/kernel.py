@@ -1,3 +1,18 @@
+# This file is part of YRTools.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                             QTreeWidget, QTreeWidgetItem, QColorDialog, QScrollArea,
                             QListWidget, QListWidgetItem, QLabel, QFormLayout, QLineEdit, 
@@ -39,6 +54,7 @@ class ColorEditor(QDialog):
         self.is_gradient = False  # 初始化is_gradient属性
         self.init_ui()
         self.add_path_editors()
+        
         
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -359,14 +375,16 @@ class ColorEditor(QDialog):
 #         return super().editorEvent(event, model, option, index)
 
 class CustomPalettePlugin(QWidget):
-    def __init__(self):
+    def __init__(self, plugin_path=None, config=None):
         super().__init__()
+        self.plugin_path = plugin_path or os.path.dirname(os.path.abspath(__file__))
+        self.config = config
         # Ensure data structure is initialized correctly
         self.palettes = {
             'gradients': {},
             'discrete': {}
         }
-        # Load data correctly
+        # Load data correctly (requires valid self.plugin_path)
         loaded_data = self.load_palettes()
         self.palettes['gradients'].update(loaded_data['gradients'])
         self.palettes['discrete'].update(loaded_data['discrete'])
@@ -584,8 +602,8 @@ class CustomPalettePlugin(QWidget):
             print(f"Failed to open color editor: {str(e)}")
         
     def load_palettes(self):
-        # path = os.path.join(self.config['dir'], 'palettes.json')
-        path = os.path.join(os.getcwd(), 'plugins', 'color_palette_selfdef', 'palettes.json')
+        # 优先使用注入的插件目录
+        path = os.path.join(self.plugin_path, 'palettes.json')
         if os.path.exists(path):
             try:
                 with open(path, 'r', encoding='utf-8') as f:
@@ -787,8 +805,8 @@ class CustomPalettePlugin(QWidget):
             self.add_to_tree(new_item, parts[1:], item)
 
     def save_palettes(self):
-        # path = os.path.join(self.config['dir'], 'palettes.json')
-        path = os.path.join(os.getcwd(), 'plugins', 'color_palette_selfdef', 'palettes.json')
+        # 保存到插件目录
+        path = os.path.join(self.plugin_path, 'palettes.json')
         # Convert QColor to serializable format
         save_data = {
             'gradients': {
@@ -848,5 +866,11 @@ class CustomPalettePlugin(QWidget):
                 self.refresh_tree() 
 
 class Plugin:
+    def __init__(self, config=None, plugin_path=None, **kwargs):
+        # These fields are injected by the main program according to the signature
+        self.config = config
+        self.plugin_path = plugin_path
+    
     def run(self):
-        return CustomPalettePlugin()
+        # Pass plugin_path to the actual plugin component, ensuring it can be used during initialization
+        return CustomPalettePlugin(plugin_path=self.plugin_path, config=self.config)
