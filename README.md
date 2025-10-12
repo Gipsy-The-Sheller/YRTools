@@ -2,6 +2,7 @@
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-GPL-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-CC--BY--SA-green.svg)](LICENSE.icon)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
 <img src="https://github.com/Gipsy-The-Sheller/YRTools/blob/main/icons/badge.svg" width="auto" height="50"/>
@@ -25,6 +26,13 @@ In v0.0.2-pre, there are several changes of the main program and the basic plugi
 ## Installation
 
 The source code of YRTools can be directly run on any platform with several site-package dependancies. If you want a portable solution, you can download its PyInstaller-packaged binary from **Release** page (Note: priority supply to Windows users) and place it into your mobile storage device.
+
+## Licenses
+
+[![License](https://img.shields.io/badge/license-GPL-green.svg)](LICENSE)
+[![License](https://mirrors.creativecommons.org/presskit/buttons/80x15/svg/by-sa.svg)](LICENSE.icon)
+
+All codes in this repository are distributed under the [**GNU General Public License 3.0 (GPL v3)** License](LICENSE). The core icons are distributed under the [**Creative Commons Attribution-ShareAlike (CC BY-SA) 4.0 International License**](LICENSE.icon)
 
 ## Bug Report
 
