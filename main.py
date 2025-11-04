@@ -283,7 +283,7 @@ class MainWindow(QMainWindow):
                     item.setIcon(0, folder_icon)
                     path_map[path_key] = item
 
-                    if len(current_path) <= 2:
+                    if len(current_path) <= 1:
                         item.setExpanded(True)
                 
                 current_parent = path_map[path_key]
