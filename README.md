@@ -4,6 +4,7 @@
 [![License](https://img.shields.io/badge/license-GPL-green.svg)](LICENSE)
 [![License](https://img.shields.io/badge/license-CC--BY--SA-green.svg)](LICENSE.icon)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Gipsy-The-Sheller/YRTools)
 
 <img src="https://github.com/Gipsy-The-Sheller/YRTools/blob/main/icons/badge.svg" width="auto" height="50"/>
 
