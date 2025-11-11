@@ -1,5 +1,5 @@
 # YR-Pacman - Decentralized Package Manager for YRTools
-# Copyright (C) 2025 YRTools Community
+# Copyright (C) 2025 Zhi-Jie Xu & Yi-Yang Jia
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

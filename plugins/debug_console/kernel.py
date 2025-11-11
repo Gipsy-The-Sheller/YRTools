@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Zhi-Jie Xu & Yi-Yang Jia
+# 
 # This file is part of YRTools.
 #
 # This program is free software: you can redistribute it and/or modify
