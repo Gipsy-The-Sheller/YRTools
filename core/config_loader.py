@@ -119,7 +119,7 @@ class PluginConfigLoader:
                 'placement': {
                     'path': plugin_config.get('placement', {}).get('path', ''),
                     'priority': int(plugin_config.get('placement', {}).get('priority', 0)),
-                    'favicon': plugin_config.get('icon', '')
+                    'favicon': plugin_config.get('placement', {}).get('favicon', plugin_config.get('icon', ''))
                 },
                 'runtime': {
                     'type': plugin_config.get('runtime', {}).get('type', 'pyplug'),
