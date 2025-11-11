@@ -444,7 +444,7 @@ class MainWindow(QMainWindow):
             logging.error(f"[ERROR] Failed to load plugin: {str(e)}")
             traceback.print_exc()
         
-        print("="*40 + "\n")
+        # print("="*40 + "\n")
 
     def _add_plugin_tab(self, widget, title, icon):
         container = QWidget()

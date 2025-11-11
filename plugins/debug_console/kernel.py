@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Zhi-Jie Xu & Yi-Yang Jia
-# 
+#
 # This file is part of YRTools.
 #
 # This program is free software: you can redistribute it and/or modify
@@ -25,8 +25,9 @@ import time
 from datetime import datetime
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPlainTextEdit, 
                              QPushButton, QCheckBox, QLabel, QComboBox, QSpinBox,
-                             QGroupBox, QFormLayout, QSplitter, QTextEdit)
-from PyQt5.QtCore import QThread, pyqtSignal, Qt, QTimer
+                             QGroupBox, QFormLayout, QSplitter, QTextEdit, QDialog, 
+                             QApplication, QMainWindow, QSizePolicy)
+from PyQt5.QtCore import QThread, pyqtSignal, Qt, QTimer, QObject
 from PyQt5.QtGui import QFont, QTextCursor, QColor, QTextCharFormat
 import platform
 
@@ -89,10 +90,64 @@ class YRDebugConsole(QWidget):
         self.current_level = 'DEBUG'
         self.auto_scroll = True
         self.max_lines = 1000
+        self.dedicated_window = None  # 添加专用窗口引用
         
         self.setup_logging()
         self.init_ui()
         self.start_monitoring()
+        
+        # 尝试从主程序获取缓冲的日志
+        self.load_buffered_logs()
+        
+    def load_buffered_logs(self):
+        """从主程序的缓冲区加载历史日志"""
+        try:
+            # 尝试访问主程序模块中的DEBUG_BUFFER
+            if 'main' in sys.modules:
+                main_module = sys.modules['main']
+                debug_buffer = getattr(main_module, 'DEBUG_BUFFER', None)
+                if debug_buffer:
+                    # 将缓冲区中的日志逐条添加到控制台
+                    for log_entry in debug_buffer:
+                        self.display_log(log_entry)
+        except Exception as e:
+            print(f"Failed to load buffered logs: {e}")
+
+    def display_log(self, log_entry):
+        """在控制台中显示单条日志"""
+        # 格式化日志消息
+        timestamp = log_entry['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+        level = log_entry['level']
+        logger_name = log_entry['logger']
+        message = log_entry['message']
+        
+        formatted_message = f"[{timestamp}] [{level}] {logger_name} - {message}\n"
+        
+        # 插入到日志文本区域
+        cursor = self.log_text.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        
+        # 设置不同级别的日志颜色
+        char_format = QTextCharFormat()
+        if level == 'ERROR' or level == 'CRITICAL':
+            char_format.setForeground(QColor('#F56C6C'))  # 红色
+        elif level == 'WARNING':
+            char_format.setForeground(QColor('#E6A23C'))  # 橙色
+        elif level == 'INFO':
+            char_format.setForeground(QColor('#67C23A'))  # 绿色
+        else:
+            char_format.setForeground(QColor('#409EFF'))  # 蓝色
+            
+        cursor.insertText(formatted_message, char_format)
+        
+        # 保持最大行数限制
+        self.trim_text()
+        
+        # 自动滚动到底部
+        if self.auto_scroll:
+            self.log_text.verticalScrollBar().setValue(
+                self.log_text.verticalScrollBar().maximum()
+            )
         
     def setup_logging(self):
         """设置日志系统"""
@@ -178,6 +233,11 @@ class YRDebugConsole(QWidget):
         self.auto_scroll_checkbox.toggled.connect(self.toggle_auto_scroll)
         control_layout.addWidget(self.auto_scroll_checkbox)
         
+        # 在独立窗口中打开按钮
+        self.open_dedicated_btn = QPushButton("Open in Dialog")
+        self.open_dedicated_btn.clicked.connect(self.open_dedicated_window)
+        control_layout.addWidget(self.open_dedicated_btn)
+        
         control_layout.addStretch()
         main_layout.addLayout(control_layout)
         
@@ -220,10 +280,10 @@ class YRDebugConsole(QWidget):
             "Architecture": platform.architecture()[0],
             "Processor": platform.processor(),
             "Machine": platform.machine(),
-            "Node": platform.node(),
-            "System": platform.system(),
-            "Release": platform.release(),
-            "Version": platform.version()
+            "Node": platform.node()
+            # ,"System": platform.system(),
+            # "Release": platform.release(),
+            # "Version": platform.version()
         }
         
         for key, value in system_info.items():
@@ -233,8 +293,12 @@ class YRDebugConsole(QWidget):
             
         info_layout.addWidget(system_group)
         
+        # 创建一个水平布局用于放置统计信息和内存使用情况
+        stats_memory_layout = QHBoxLayout()
+        
         # 日志统计组
         stats_group = QGroupBox("Log Statistics")
+        stats_group.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         stats_layout = QFormLayout(stats_group)
         
         self.stats_labels = {}
@@ -244,7 +308,8 @@ class YRDebugConsole(QWidget):
             self.stats_labels[level] = label
             stats_layout.addRow(f"{level}:", label)
             
-        info_layout.addWidget(stats_group)
+        # 将统计信息添加到水平布局
+        stats_memory_layout.addWidget(stats_group)
         
         # 内存使用情况
         memory_group = QGroupBox("Memory Usage")
@@ -259,8 +324,11 @@ class YRDebugConsole(QWidget):
         self.memory_timer.timeout.connect(self.update_memory_info)
         self.memory_timer.start(2000)  # 每2秒更新一次
         
-        info_layout.addWidget(memory_group)
+        # 将内存信息添加到水平布局
+        stats_memory_layout.addWidget(memory_group)
         
+        # 将水平布局添加到主信息布局
+        info_layout.addLayout(stats_memory_layout)
         info_layout.addStretch()
         splitter.addWidget(info_widget)
         
@@ -281,12 +349,8 @@ class YRDebugConsole(QWidget):
         if self.log_levels.index(level) < self.log_levels.index(self.current_level):
             return
             
-        # 格式化日志消息
-        timestamp = log_entry['timestamp'].strftime("%H:%M:%S.%f")[:-3]
-        message = f"[{timestamp}] [{level}] {log_entry['logger']}.{log_entry['funcName']}:{log_entry['lineno']} - {log_entry['message']}"
-        
-        # 添加颜色格式
-        self.add_colored_log(message, level)
+        # 使用统一的显示方法
+        self.display_log(log_entry)
         
         # 更新统计
         self.update_stats(level)
@@ -305,16 +369,21 @@ class YRDebugConsole(QWidget):
         cursor.insertText(message + "\n")
         
         # 限制最大行数
-        if self.log_text.document().blockCount() > self.max_lines:
-            cursor.movePosition(QTextCursor.Start)
-            cursor.movePosition(QTextCursor.Down, QTextCursor.KeepAnchor, 
-                              self.log_text.document().blockCount() - self.max_lines)
-            cursor.removeSelectedText()
+        self.trim_text()
             
         # 自动滚动
         if self.auto_scroll:
             self.log_text.moveCursor(QTextCursor.End)
             
+    def trim_text(self):
+        """修剪文本以保持最大行数"""
+        if self.log_text.document().blockCount() > self.max_lines:
+            cursor = self.log_text.textCursor()
+            cursor.movePosition(QTextCursor.Start)
+            cursor.movePosition(QTextCursor.Down, QTextCursor.KeepAnchor, 
+                              self.log_text.document().blockCount() - self.max_lines)
+            cursor.removeSelectedText()
+
     def add_log_message(self, message, level="INFO"):
         """添加日志消息"""
         timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
@@ -358,6 +427,18 @@ Memory %: {memory_percent:.1f}%
         except Exception as e:
             self.memory_label.setText(f"Error: {str(e)}")
             
+    def open_dedicated_window(self):
+        """在独立窗口中打开调试控制台"""
+        # 如果窗口已经存在，将其激活
+        if self.dedicated_window and self.dedicated_window.isVisible():
+            self.dedicated_window.raise_()
+            self.dedicated_window.activateWindow()
+            return
+            
+        # 创建新的独立窗口
+        self.dedicated_window = DedicatedConsoleWindow()
+        self.dedicated_window.show()
+        
     def on_level_changed(self, level):
         """日志级别改变"""
         self.current_level = level
@@ -376,17 +457,27 @@ Memory %: {memory_percent:.1f}%
         
     def toggle_pause(self):
         """切换暂停状态"""
-        if self.monitor_thread and self.monitor_thread.isRunning():
-            if self.pause_btn.text() == "Pause":
-                self.monitor_thread.stop()
-                self.pause_btn.setText("Resume")
-                self.add_log_message("Log monitoring paused", "WARNING")
+        try:
+            if self.monitor_thread:
+                if self.pause_btn.text() == "Pause":
+                    self.monitor_thread.stop()
+                    self.pause_btn.setText("Resume")
+                    self.add_log_message("Log monitoring paused", "WARNING")
+                else:
+                    self.monitor_thread = LogMonitorThread(self.log_queue)
+                    self.monitor_thread.log_received.connect(self.on_log_received)
+                    self.monitor_thread.start()
+                    self.pause_btn.setText("Pause")
+                    self.add_log_message("Log monitoring resumed", "INFO")
             else:
+                # 如果没有监控线程，创建一个新的
                 self.monitor_thread = LogMonitorThread(self.log_queue)
                 self.monitor_thread.log_received.connect(self.on_log_received)
                 self.monitor_thread.start()
                 self.pause_btn.setText("Pause")
-                self.add_log_message("Log monitoring resumed", "INFO")
+                self.add_log_message("Log monitoring started", "INFO")
+        except Exception as e:
+            self.add_log_message(f"Error toggling pause: {e}", "ERROR")
                 
     def toggle_auto_scroll(self, enabled):
         """切换自动滚动"""
@@ -425,3 +516,300 @@ if __name__ == "__main__":
     console.show()
     
     sys.exit(app.exec_())
+
+class DedicatedConsoleWindow(QDialog):
+    """独立的调试控制台窗口"""
+    def __init__(self):
+        super().__init__()
+        self.log_queue = queue.Queue(maxsize=1000)
+        self.log_handler = None
+        self.monitor_thread = None
+        self.log_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+        self.current_level = 'DEBUG'
+        self.auto_scroll = True
+        self.max_lines = 1000
+        self.float_on_top = False  # 添加float on top属性
+        
+        self.init_ui()
+        self.setup_logging()
+        self.start_monitoring()
+        self.load_buffered_logs()
+        
+    def init_ui(self):
+        """初始化UI"""
+        self.setWindowTitle("YR Debug Console - Dedicated Window")
+        self.setGeometry(150, 150, 1000, 700)
+        
+        main_layout = QVBoxLayout()
+        self.setLayout(main_layout)
+        
+        # 控制面板
+        control_layout = QHBoxLayout()
+        
+        # 日志级别选择
+        level_label = QLabel("Log Level:")
+        control_layout.addWidget(level_label)
+        
+        self.level_combo = QComboBox()
+        self.level_combo.addItems(self.log_levels)
+        self.level_combo.setCurrentText(self.current_level)
+        self.level_combo.currentTextChanged.connect(self.on_level_changed)
+        control_layout.addWidget(self.level_combo)
+        
+        # 最大行数设置
+        lines_label = QLabel("Max Lines:")
+        control_layout.addWidget(lines_label)
+        
+        self.max_lines_spin = QSpinBox()
+        self.max_lines_spin.setRange(100, 10000)
+        self.max_lines_spin.setValue(self.max_lines)
+        self.max_lines_spin.valueChanged.connect(self.on_max_lines_changed)
+        control_layout.addWidget(self.max_lines_spin)
+        
+        # 控制按钮
+        self.clear_btn = QPushButton("Clear")
+        self.clear_btn.clicked.connect(self.clear_logs)
+        control_layout.addWidget(self.clear_btn)
+        
+        self.pause_btn = QPushButton("Pause")
+        self.pause_btn.clicked.connect(self.toggle_pause)
+        control_layout.addWidget(self.pause_btn)
+        
+        # 自动滚动
+        self.auto_scroll_checkbox = QCheckBox("Auto Scroll")
+        self.auto_scroll_checkbox.setChecked(self.auto_scroll)
+        self.auto_scroll_checkbox.toggled.connect(self.toggle_auto_scroll)
+        control_layout.addWidget(self.auto_scroll_checkbox)
+        
+        # Float on Top 复选框
+        self.float_on_top_checkbox = QCheckBox("Float on Top")
+        self.float_on_top_checkbox.toggled.connect(self.toggle_float_on_top)
+        control_layout.addWidget(self.float_on_top_checkbox)
+        
+        control_layout.addStretch()
+        main_layout.addLayout(control_layout)
+        
+        # 日志显示区域
+        self.log_text = QPlainTextEdit()
+        self.log_text.setReadOnly(True)
+        self.log_text.setFont(QFont("Consolas" if platform.system() == "Windows" else "Courier New", 9))
+        
+        # 设置样式（Monokai主题）
+        self.log_text.setStyleSheet("""
+            QPlainTextEdit {
+                background-color: #272822;
+                color: #f8f8f2;
+                border: 1px solid #3c3c3c;
+                font-family: 'Consolas', monospace;
+            }
+        """)
+        
+        main_layout.addWidget(self.log_text)
+        
+    def setup_logging(self):
+        """设置日志系统"""
+        # 获取根日志记录器
+        root_logger = logging.getLogger()
+        
+        # 创建自定义处理器
+        self.log_handler = LogHandler(self.log_queue)
+        self.log_handler.setLevel(logging.DEBUG)
+        
+        # 设置日志格式
+        formatter = logging.Formatter(
+            '%(asctime)s [%(threadName)s] %(name)s.%(funcName)s:%(lineno)d - %(levelname)s - %(message)s'
+        )
+        self.log_handler.setFormatter(formatter)
+        
+        # 添加到根日志记录器
+        root_logger.addHandler(self.log_handler)
+        
+    def start_monitoring(self):
+        """开始监控日志"""
+        self.monitor_thread = LogMonitorThread(self.log_queue)
+        self.monitor_thread.log_received.connect(self.on_log_received)
+        self.monitor_thread.start()
+        
+        # 添加启动消息
+        self.add_log_message("YR Debug Console (Dedicated Window) started", "INFO")
+        
+    def load_buffered_logs(self):
+        """从主程序的缓冲区加载历史日志"""
+        try:
+            # 尝试访问主程序模块中的DEBUG_BUFFER
+            if 'main' in sys.modules:
+                main_module = sys.modules['main']
+                debug_buffer = getattr(main_module, 'DEBUG_BUFFER', None)
+                if debug_buffer:
+                    # 将缓冲区中的日志逐条添加到控制台
+                    for log_entry in debug_buffer:
+                        self.display_log(log_entry)
+        except Exception as e:
+            self.add_log_message(f"Failed to load buffered logs: {e}", "ERROR")
+            
+    def display_log(self, log_entry):
+        """在控制台中显示单条日志"""
+        try:
+            # 格式化日志消息
+            timestamp = log_entry['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+            level = log_entry['level']
+            logger_name = log_entry['logger']
+            message = log_entry['message']
+            
+            formatted_message = f"[{timestamp}] [{level}] {logger_name} - {message}\n"
+            
+            # 插入到日志文本区域
+            cursor = self.log_text.textCursor()
+            cursor.movePosition(QTextCursor.End)
+            
+            # 设置不同级别的日志颜色
+            char_format = QTextCharFormat()
+            if level == 'ERROR' or level == 'CRITICAL':
+                char_format.setForeground(QColor('#F56C6C'))  # 红色
+            elif level == 'WARNING':
+                char_format.setForeground(QColor('#E6A23C'))  # 橙色
+            elif level == 'INFO':
+                char_format.setForeground(QColor('#67C23A'))  # 绿色
+            else:
+                char_format.setForeground(QColor('#409EFF'))  # 蓝色
+                
+            cursor.insertText(formatted_message, char_format)
+            
+            # 保持最大行数限制
+            self.trim_text()
+            
+            # 自动滚动到底部
+            if self.auto_scroll:
+                self.log_text.verticalScrollBar().setValue(
+                    self.log_text.verticalScrollBar().maximum()
+                )
+        except Exception as e:
+            # 避免在日志处理中出现异常导致程序崩溃
+            print(f"Error displaying log: {e}")
+            
+    def trim_text(self):
+        """修剪文本以保持最大行数"""
+        if self.log_text.document().blockCount() > self.max_lines:
+            cursor = self.log_text.textCursor()
+            cursor.movePosition(QTextCursor.Start)
+            cursor.movePosition(QTextCursor.Down, QTextCursor.KeepAnchor, 
+                              self.log_text.document().blockCount() - self.max_lines)
+            cursor.removeSelectedText()
+            
+    def on_log_received(self, log_entry):
+        """处理接收到的日志"""
+        try:
+            level = log_entry['level']
+            
+            # 检查日志级别过滤
+            if self.log_levels.index(level) < self.log_levels.index(self.current_level):
+                return
+                
+            # 使用统一的显示方法
+            self.display_log(log_entry)
+        except Exception as e:
+            self.add_log_message(f"Error processing log: {e}", "ERROR")
+        
+    def on_level_changed(self, level):
+        """日志级别改变"""
+        self.current_level = level
+        
+    def on_max_lines_changed(self, value):
+        """最大行数改变"""
+        self.max_lines = value
+        
+    def clear_logs(self):
+        """清除日志"""
+        self.log_text.clear()
+        self.add_log_message("Logs cleared", "INFO")
+        
+    def add_log_message(self, message, level="INFO"):
+        """添加日志消息"""
+        try:
+            timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+            formatted_message = f"[{timestamp}] [{level}] YRDebugConsole - {message}"
+            
+            # 插入到日志文本区域
+            cursor = self.log_text.textCursor()
+            cursor.movePosition(QTextCursor.End)
+            
+            # 设置颜色格式
+            char_format = QTextCharFormat()
+            char_format.setForeground(QColor(self.get_level_color(level)))
+            cursor.setCharFormat(char_format)
+            
+            # 插入文本
+            cursor.insertText(formatted_message + "\n")
+            
+            # 自动滚动
+            if self.auto_scroll:
+                self.log_text.moveCursor(QTextCursor.End)
+        except Exception as e:
+            print(f"Error adding log message: {e}")
+            
+    def get_level_color(self, level):
+        """获取日志级别对应的颜色"""
+        colors = {
+            'DEBUG': '#75715e',    # 灰色
+            'INFO': '#66d9ef',     # 青色
+            'WARNING': '#e6db74', # 黄色
+            'ERROR': '#f92672',   # 红色
+            'CRITICAL': '#ff0000' # 深红色
+        }
+        return colors.get(level, '#f8f8f2')
+        
+    def toggle_float_on_top(self, enabled):
+        """切换窗口置顶状态"""
+        self.float_on_top = enabled
+        if enabled:
+            self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
+        else:
+            self.setWindowFlags(self.windowFlags() & ~Qt.WindowStaysOnTopHint)
+        self.show()  # 重新显示窗口以应用更改
+
+    def toggle_pause(self):
+        """切换暂停状态"""
+        try:
+            if self.monitor_thread and self.monitor_thread.isRunning():
+                if self.pause_btn.text() == "Pause":
+                    self.monitor_thread.stop()
+                    self.pause_btn.setText("Resume")
+                    self.add_log_message("Log monitoring paused", "WARNING")
+                else:
+                    self.monitor_thread = LogMonitorThread(self.log_queue)
+                    self.monitor_thread.log_received.connect(self.on_log_received)
+                    self.monitor_thread.start()
+                    self.pause_btn.setText("Pause")
+                    self.add_log_message("Log monitoring resumed", "INFO")
+            else:
+                # 如果没有监控线程，创建一个新的
+                self.monitor_thread = LogMonitorThread(self.log_queue)
+                self.monitor_thread.log_received.connect(self.on_log_received)
+                self.monitor_thread.start()
+                self.pause_btn.setText("Pause")
+                self.add_log_message("Log monitoring started", "INFO")
+        except Exception as e:
+            self.add_log_message(f"Error toggling pause: {e}", "ERROR")
+                
+    def toggle_auto_scroll(self, enabled):
+        """切换自动滚动"""
+        self.auto_scroll = enabled
+        
+    def closeEvent(self, event):
+        """关闭事件"""
+        try:
+            if self.monitor_thread and self.monitor_thread.isRunning():
+                self.monitor_thread.stop()
+                self.monitor_thread.wait()
+                
+            # 移除日志处理器
+            if self.log_handler:
+                root_logger = logging.getLogger()
+                root_logger.removeHandler(self.log_handler)
+                
+            event.accept()
+        except Exception as e:
+            print(f"Error in close event: {e}")
+            event.accept()
+
+

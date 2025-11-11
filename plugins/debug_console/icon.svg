@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_图层_1" data-name="图层 1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 24 24">
+  <defs>
+    <style>
+      .cls-1 {
+        stroke: #66d9ef;
+      }
+
+      .cls-1, .cls-2 {
+        stroke-width: 2px;
+      }
+
+      .cls-1, .cls-2, .cls-3 {
+        fill: none;
+      }
+
+      .cls-4 {
+        fill: #4e6691;
+      }
+
+      .cls-4, .cls-5, .cls-6, .cls-7 {
+        stroke-width: 0px;
+      }
+
+      .cls-5 {
+        fill: #75715e;
+      }
+
+      .cls-6 {
+        fill: #f92672;
+      }
+
+      .cls-2 {
+        stroke: #fff;
+        stroke-linejoin: round;
+      }
+
+      .cls-2, .cls-3 {
+        stroke-linecap: round;
+      }
+
+      .cls-3 {
+        stroke: #f8f8f2;
+        stroke-width: 1.5px;
+      }
+
+      .cls-7 {
+        fill: #e6db74;
+      }
+    </style>
+  </defs>
+  <rect class="cls-1" x="2" y="-48.3" width="20" height="16" rx="-8.2" ry="-8.2"/>
+  <path class="cls-3" d="M6-44.3h12M6-40.3h8M6-36.3h4"/>
+  <circle class="cls-7" cx="18" cy="-44.3" r="2"/>
+  <circle class="cls-6" cx="18" cy="-40.3" r="2"/>
+  <circle class="cls-5" cx="18" cy="-36.3" r="2"/>
+  <g>
+    <rect class="cls-4" x="1.6" y="2.8" width="20.7" height="18.3" rx="3.1" ry="3.1"/>
+    <polyline class="cls-2" points="6.3 7.8 9.2 10.7 6.2 13.7"/>
+    <line class="cls-2" x1="11.3" y1="14.7" x2="16.7" y2="14.7"/>
+  </g>
+</svg>
