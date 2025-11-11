@@ -61,10 +61,10 @@ class PluginConfigLoader:
         try:
             with open(json_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
-                logger.info(f"✅ Loaded JSON config from {json_path}")
+                logger.info(f"[INFO] Loaded JSON config from {json_path}")
                 return config
         except Exception as e:
-            logger.error(f"❌ Failed to load JSON config from {json_path}: {str(e)}")
+            logger.error(f"[ERROR] Failed to load JSON config from {json_path}: {str(e)}")
             return None
     
     def _load_ini_config(self, plugin_dir: str) -> Optional[ConfigParser]:
@@ -76,10 +76,10 @@ class PluginConfigLoader:
         try:
             config = ConfigParser()
             config.read(ini_path, encoding='utf-8')
-            logger.info(f"✅ Loaded INI config from {ini_path}")
+            logger.info(f"[INFO] Loaded INI config from {ini_path}")
             return config
         except Exception as e:
-            logger.error(f"❌ Failed to load INI config from {ini_path}: {str(e)}")
+            logger.error(f"[ERROR] Failed to load INI config from {ini_path}: {str(e)}")
             return None
     
     def _parse_json_config(self, config: Dict, plugin_dir: str) -> Dict[str, Any]:
@@ -209,19 +209,19 @@ class PluginConfigLoader:
             if not os.path.isdir(dir_path):
                 continue
             
-            logger.info(f"🔍 Scanning plugin directory: {dir_path}")
+            logger.info(f"[INFO] Scanning plugin directory: {dir_path}")
             
             config_data = self.load_plugin_config(dir_path)
             if config_data:
                 all_plugins.extend(config_data['plugins'])
-                logger.info(f"✅ Loaded {len(config_data['plugins'])} plugin(s) from {dir_name}")
+                logger.info(f"[INFO] Loaded {len(config_data['plugins'])} plugin(s) from {dir_name}")
             else:
-                logger.warning(f"❌ Failed to load config from {dir_name}")
+                logger.warning(f"[ERROR] Failed to load config from {dir_name}")
         
         # 按优先级排序
         all_plugins.sort(key=lambda x: int(x['placement'].get('priority', 0)))
         
-        logger.info(f"📊 Total plugins loaded: {len(all_plugins)}")
+        logger.info(f"[INFO] Total plugins loaded: {len(all_plugins)}")
         return all_plugins
 
 # 全局配置加载器实例
