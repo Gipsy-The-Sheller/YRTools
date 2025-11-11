@@ -44,6 +44,28 @@ import inspect
 import logging
 from core.crash_handler import handle_exception
 from core.config_loader import config_loader
+import collections
+
+# 创建一个循环缓冲区来存储最近的100条日志记录
+DEBUG_BUFFER = collections.deque(maxlen=100)
+
+# 自定义日志处理器，将日志同时写入循环缓冲区
+class BufferedHandler(logging.Handler):
+    def emit(self, record):
+        log_entry = {
+            'timestamp': datetime.datetime.fromtimestamp(record.created),
+            'level': record.levelname,
+            'logger': record.name,
+            'message': record.getMessage(),
+            'module': record.module,
+            'funcName': record.funcName,
+            'lineno': record.lineno
+        }
+        DEBUG_BUFFER.append(log_entry)
+
+# 添加自定义处理器到根日志记录器
+buffered_handler = BufferedHandler()
+logging.getLogger().addHandler(buffered_handler)
 
 # basic plugin dependencies
 ## NOTE: This part may be removed from source code after the development of YRRuntimeManager
@@ -78,12 +100,12 @@ try:
                     # Python Package: 添加到sys.path
                     if item_path not in sys.path:
                         sys.path.insert(0, item_path)
-                        print(f"[INFO] Added Python package to sys.path: {item}")
+                        logging.info(f"[INFO] Added Python package to sys.path: {item}")
                 else:
                     # Common Module: 添加到sys.path和PATH环境变量
                     if item_path not in sys.path:
                         sys.path.insert(0, item_path)
-                        print(f"[INFO] Added common module to sys.path: {item}")
+                        logging.info(f"[INFO] Added common module to sys.path: {item}")
                     
                     # 添加到PATH环境变量
                     current_path = os.environ.get('PATH', '')
@@ -92,12 +114,12 @@ try:
                             os.environ['PATH'] = item_path + os.pathsep + current_path
                         else:
                             os.environ['PATH'] = item_path
-                        print(f"[INFO] Added common module to PATH: {item}")
+                        logging.info(f"[INFO] Added common module to PATH: {item}")
     else:
-        print("[WARN] Runtime base directory not found, creating...")
+        logging.warning("[WARN] Runtime base directory not found, creating...")
         os.makedirs(runtime_base_path, exist_ok=True)
 except Exception as e:
-    print(f"[ERROR] Failed to initialize runtime environment: {str(e)}")
+    logging.error(f"[ERROR] Failed to initialize runtime environment: {str(e)}")
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -116,17 +138,15 @@ print("Current working dir:", os.getcwd())
 print("Root:", BASE_DIR)
 print("Python path:", sys.path)
 
+logging.info(f"[INFO] RESTART\ncwd: {os.getcwd()}\nRoot: {BASE_DIR}\nPython path: {sys.path} ")
+
 def scan_plugins():
-    """
-    扫描所有插件，支持INI和JSON配置格式
-    返回统一的插件配置列表
-    """
-    print("[INFO] Scanning plugins with enhanced config loader...")
+    logging.info("[INFO] Scanning plugins with enhanced config loader...")
     
     # 使用新的配置加载器
     plugins = config_loader.get_all_plugins("plugins")
     
-    print(f"[INFO] Scanning completed! Found a total of {len(plugins)} valid plugins.")
+    logging.info(f"[INFO] Scanning completed! Found a total of {len(plugins)} valid plugins.")
     return plugins
 
 def load_config(plugin_dir):
@@ -310,23 +330,24 @@ class MainWindow(QMainWindow):
         self.plugin_tree.setStyleSheet("QTreeWidget::item { padding-left: 8px; }")
 
     def load_plugin(self, item):
-        print("\n" + "="*40)
-        print("Start to load plugins...")
+        # print("\n" + "="*40)
+        # print("Start to load plugins...")
         
         plugin = item.data(0, Qt.UserRole)
         if not plugin:
-            print("[ERROR] Invalid add-ons")
+            logging.error("[ERROR] Invalid add-ons")
             return
         
-        print(f"Plugin Information: {plugin['meta']['name']}")
-        print(f"Plugin Type: {plugin['runtime']['type']}")
-        print(f"Config Type: {plugin.get('config_type', 'unknown')}")
+        # print(f"Plugin Information: {plugin['meta']['name']}")
+        # print(f"Plugin Type: {plugin['runtime']['type']}")
+        # print(f"Config Type: {plugin.get('config_type', 'unknown')}")
+        logging.info(f"[INFO] Loading plugin: {plugin['meta']['name']} {plugin['runtime']['type']} {plugin.get('config_type', 'unknown')}")
         
         try:
             plugin_type = plugin['runtime']['type']
             
             if plugin_type == 'pyplug':
-                # Main type of plugins
+                # Main type of plugins  
                 if 'entry_point' not in plugin['runtime']:
                     raise ValueError("Python plugin needs an entry_point!")
                     
@@ -352,7 +373,7 @@ class MainWindow(QMainWindow):
                 # Make sure plugin_path is set
                 if not hasattr(plugin_instance, 'plugin_path') or plugin_instance.plugin_path is None:
                     plugin_instance.plugin_path = plugin['dir']
-                print(f"Successfully initialized: {plugin['meta']['name']}")
+                logging.info(f"[INFO] Successfully initialized: {plugin['meta']['name']}")
                 widget = plugin_instance.run()
                 # widget.init_ui()
                     
@@ -389,7 +410,7 @@ class MainWindow(QMainWindow):
                     if not hasattr(plugin_instance, 'plugin_path') or plugin_instance.plugin_path is None:
                         plugin_instance.plugin_path = plugin['dir']
 
-                    print(f"Successfully initialized: {plugin['meta']['name']}")
+                    logging.info(f"[INFO] Successfully initialized: {plugin['meta']['name']}")
                     widget = plugin_instance.run()
                 finally:
                     # 若需严格隔离，可在此移除路径：
@@ -411,16 +432,16 @@ class MainWindow(QMainWindow):
                     if os.path.exists(icon_path):
                         icon = QIcon(icon_path)
             except KeyError as e:
-                print(f"[WARN] {plugin['meta']['name']} lacks favicon configuration: {str(e)}")
+                logging.warning(f"[WARN] {plugin['meta']['name']} lacks favicon configuration: {str(e)}")
                 icon = self.default_plugin_icon
             except Exception as e:
-                print(f"[WARN] Failed to load icon for {plugin['meta']['name']}: {str(e)}")
+                logging.warning(f"[WARN] Failed to load icon for {plugin['meta']['name']}: {str(e)}")
                 icon = self.default_plugin_icon
             
             self._add_plugin_tab(widget, plugin['meta']['name'], icon)
             
         except Exception as e:
-            print(f"[ERROR] Failed to load plugin: {str(e)}")
+            logging.error(f"[ERROR] Failed to load plugin: {str(e)}")
             traceback.print_exc()
         
         print("="*40 + "\n")
@@ -518,9 +539,9 @@ class MainWindow(QMainWindow):
             with open("styles/global.qss", "r", encoding="utf-8") as f:
                 self.setStyleSheet(f.read())
         except FileNotFoundError:
-            print("[WARN] Unable to find global qss. Using default style.")
+            logging.warning(f"[WARN] Unable to find global qss. Using default style.")
         except Exception as e:
-            print(f"[ERROR] Failed to load qss: {str(e)}")
+            logging.error(f"[ERROR] Failed to load qss: {str(e)}")
 
     def create_plugin(self, plugin_data):
         if plugin_data['runtime']['type'] == 'gui':
@@ -536,7 +557,7 @@ class MainWindow(QMainWindow):
     def load_fonts(self):
         font_path = "fonts/MiSans-Medium.ttf"
         if QFontDatabase.addApplicationFont(font_path) == -1:
-            print("[ERROR] Failed to load fonts.")
+            logging.error("[ERROR] Failed to load fonts.")
 
 class PluginWrapper:
     """插件包装器，兼容新的配置格式"""
@@ -571,16 +592,16 @@ if __name__ == "__main__":
         # 获取字体家族名称
         families = QFontDatabase.applicationFontFamilies(font_id)
         if not families:
-            print("[WARN] Failed to load font family. Using default fonts.")
+            logging.warning(f"[WARN] Failed to load font family. Using default fonts.")
         else:
             font_family = families[0]
             app_font = QFont(font_family, 10)
             app_font.setWeight(QFont.Medium)  # 显式设置字重
             app.setFont(app_font)
-            print(f"[INFO] Successfully loaded fonts: {font_family}")
-            print(f"Current font: {app_font.toString()}")
+            logging.info(f"[INFO] Successfully loaded fonts: {font_family}\nCurrent font: {app_font.toString()}")
+            # print(f"Current font: {app_font.toString()}")
     else:
-        print("[ERROR] Failed to load fonts. Please check the path: ", font_path)
+        logging.error("[ERROR] Failed to load fonts. Please check the path: ", font_path)
 
     window = MainWindow()
     window.show()
