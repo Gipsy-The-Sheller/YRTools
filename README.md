@@ -18,7 +18,7 @@ If you are interested in the plugin development of YRTools, you may go to its Gi
 
 ## What's new in v0.0.2
 
-In v0.0.2-pre, there are several changes of the main program and the basic plugin set:
+In v0.0.2, there are several changes of the main program and the basic plugin set:
 
 - YRTools has now become Anglicized.
 - From now on, YRTools supports a lightweight runtime environment management by **YR Runtime Manager**. You may create environments lighter than conda and use them to manage not only python site-packages, but also any scripts or binaries which are needed to be reused.
