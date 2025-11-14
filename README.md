@@ -16,12 +16,15 @@ The main program of YRTools acts as a GUI wrapper for all its plugins, while plu
 
 If you are interested in the plugin development of YRTools, you may go to its Github Wiki for more information.
 
-## What's new on v0.0.2-pre?
+## What's new in v0.0.2
 
 In v0.0.2-pre, there are several changes of the main program and the basic plugin set:
 
 - YRTools has now become Anglicized.
 - From now on, YRTools supports a lightweight runtime environment management by **YR Runtime Manager**. You may create environments lighter than conda and use them to manage not only python site-packages, but also any scripts or binaries which are needed to be reused.
+- YR Debug Console to view logs in YRTool's UI.
+- YRTools now have an decentralized plugin package manager (YR-PacMan).
+- Supports new plugin format: polypyplug.
 - Several small changes of art design and icons.
 
 ## Installation
