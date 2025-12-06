@@ -21,14 +21,100 @@ import requests
 import zipfile
 import tempfile
 import shutil
+import urllib.parse
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, 
                             QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, 
                             QDialogButtonBox, QLineEdit, QFileDialog, QMessageBox, 
                             QScrollArea, QMenu, QInputDialog, QRadioButton,
                             QApplication, QTabWidget, QTextEdit, QListWidget,
-                            QListWidgetItem, QComboBox, QProgressBar, QSizePolicy)
+                            QListWidgetItem, QComboBox, QProgressBar, QSizePolicy,
+                            QFrame, QGroupBox)
 from PyQt5.QtCore import Qt, QSize, QThread, pyqtSignal
 from PyQt5.QtGui import QIcon, QFont, QCursor
+
+class AssetSelectionDialog(QDialog):
+    """对话框用于选择要安装的资产文件"""
+    
+    def __init__(self, plugin_name, release_info, parent=None):
+        super().__init__(parent)
+        self.plugin_name = plugin_name
+        self.release_info = release_info
+        self.selected_url = None
+        self.radio_buttons = []
+        self.init_ui()
+    
+    def init_ui(self):
+        self.setWindowTitle(f"Select Package for {self.plugin_name} ({self.release_info['tag_name']})")
+        self.setModal(True)
+        self.resize(500, 300)
+        
+        layout = QVBoxLayout()
+        
+        # 标题
+        title_label = QLabel(f"Select package to install for {self.plugin_name}")
+        title_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        layout.addWidget(title_label)
+        
+        # 版本信息
+        version_label = QLabel(f"Version: {self.release_info['tag_name']} - {self.release_info['name']}")
+        layout.addWidget(version_label)
+        
+        # 添加分割线
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setFrameShadow(QFrame.Sunken)
+        layout.addWidget(line)
+        
+        # 包选项
+        packages_group = QGroupBox("Available Packages")
+        packages_layout = QVBoxLayout()
+        
+        # zipball选项
+        zipball_radio = QRadioButton(f"Source code (zip) - {self.release_info['zipball_url'].split('/')[-1]}")
+        zipball_radio.url = self.release_info['zipball_url']
+        packages_layout.addWidget(zipball_radio)
+        self.radio_buttons.append(zipball_radio)
+        
+        # tarball选项
+        tarball_radio = QRadioButton(f"Source code (tar.gz) - {self.release_info['tarball_url'].split('/')[-1]}")
+        tarball_radio.url = self.release_info['tarball_url']
+        packages_layout.addWidget(tarball_radio)
+        self.radio_buttons.append(tarball_radio)
+        
+        # Assets选项
+        if 'assets' in self.release_info and self.release_info['assets']:
+            assets_label = QLabel("Assets:")
+            assets_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
+            packages_layout.addWidget(assets_label)
+            
+            for asset in self.release_info['assets']:
+                radio = QRadioButton(f"{asset['name']} ({asset['size']} bytes)")
+                radio.url = asset['browser_download_url']
+                packages_layout.addWidget(radio)
+                self.radio_buttons.append(radio)
+        
+        # 设置默认选中第一个选项
+        if self.radio_buttons:
+            self.radio_buttons[0].setChecked(True)
+        
+        packages_group.setLayout(packages_layout)
+        layout.addWidget(packages_group)
+        
+        # 按钮
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+        
+        self.setLayout(layout)
+    
+    def accept(self):
+        # 确定选中的URL
+        for radio in self.radio_buttons:
+            if radio.isChecked():
+                self.selected_url = radio.url
+                break
+        super().accept()
 
 class GitHubSearchThread(QThread):
     """线程用于在GitHub上搜索插件"""
@@ -41,8 +127,16 @@ class GitHubSearchThread(QThread):
     
     def run(self):
         try:
-            # 使用GitHub API搜索带有yr-plugin标签的仓库
-            url = f"https://api.github.com/search/repositories?q=topic:{self.query}"
+            # 使用GitHub API搜索仓库
+            # 如果查询为空或只包含空格，则使用默认的topic:yr-plugin搜索
+            if not self.query.strip():
+                search_query = "topic:yr-plugin"
+            else:
+                search_query = self.query
+            
+            # URL编码查询参数
+            encoded_query = urllib.parse.quote_plus(search_query)
+            url = f"https://api.github.com/search/repositories?q={encoded_query}"
             response = requests.get(url)
             
             if response.status_code == 200:
@@ -123,8 +217,19 @@ class ReleaseFetcherThread(QThread):
                         'name': item['name'],
                         'published_at': item['published_at'],
                         'zipball_url': item['zipball_url'],
-                        'tarball_url': item['tarball_url']
+                        'tarball_url': item['tarball_url'],
+                        'assets': []
                     }
+                    
+                    # 添加assets信息
+                    for asset in item.get('assets', []):
+                        asset_info = {
+                            'name': asset['name'],
+                            'size': asset['size'],
+                            'browser_download_url': asset['browser_download_url']
+                        }
+                        release_info['assets'].append(asset_info)
+                        
                     releases.append(release_info)
                 
                 self.releases_fetched.emit(self.plugin_name, releases)
@@ -233,7 +338,7 @@ class YRPacmanWidget(QWidget):
         # 搜索和操作区域
         search_layout = QHBoxLayout()
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Enter search keyword (default: yr-plugin)")
+        self.search_input.setPlaceholderText("Enter search query (default: topic:yr-plugin, supports advanced search)")
         self.search_button = QPushButton("Search Plugins")
         self.search_button.clicked.connect(self.search_plugins)
         search_layout.addWidget(self.search_input)
@@ -264,7 +369,10 @@ class YRPacmanWidget(QWidget):
         # 状态栏
         self.status_label = QLabel("Ready")
         layout.addWidget(self.status_label)
-    
+        
+        # 自动触发一次默认搜索
+        self.search_plugins()
+
     def init_search_results_tab(self):
         layout = QVBoxLayout(self.search_results_tab)
         
@@ -319,33 +427,67 @@ class YRPacmanWidget(QWidget):
         layout.addLayout(control_layout)
     
     def search_plugins(self):
-        keyword = self.search_input.text().strip()
-        if not keyword:
-            keyword = "yr-plugin"
+        """搜索插件"""
+        # 获取搜索关键词
+        query = self.search_input.text()
         
-        self.status_label.setText(f"Searching for plugins with keyword: {keyword}")
+        # 如果输入为空，则使用默认搜索
+        if not query.strip():
+            query = "topic:yr-plugin"
+            self.status_label.setText("Searching for plugins with topic:yr-plugin...")
+        else:
+            self.status_label.setText(f"Searching for plugins with query: {query}...")
+        
         self.progress_bar.setVisible(True)
         self.progress_bar.setRange(0, 0)  # Indeterminate progress
         
+        # 清空之前的结果
+        self.results_list.clear()
+        
         # 启动搜索线程
-        self.search_thread = GitHubSearchThread(keyword)
+        self.search_thread = GitHubSearchThread(query)
         self.search_thread.search_finished.connect(self.on_search_finished)
         self.search_thread.search_error.connect(self.on_search_error)
         self.search_thread.start()
     
     def on_search_finished(self, plugins):
+        """搜索完成后的回调"""
         self.progress_bar.setVisible(False)
         self.results_list.clear()
         
         if not plugins:
-            self.status_label.setText("No plugins found")
+            query = self.search_input.text()
+            if not query.strip():
+                self.status_label.setText("No plugins found with topic:yr-plugin")
+            else:
+                self.status_label.setText(f"No plugins found matching: {query}")
             return
         
-        self.status_label.setText(f"Found {len(plugins)} plugins. Validating...")
-        
-        # 保存插件信息并开始验证
         self.plugins = {plugin['name']: plugin for plugin in plugins}
         
+        # 显示结果
+        for plugin in plugins:
+            item = QTreeWidgetItem([
+                plugin['name'],
+                plugin['description'] or 'No description',
+                plugin['updated_at'][:10],
+                'Pending'
+            ])
+            item.setData(0, Qt.UserRole, plugin)
+            self.results_list.addTopLevelItem(item)
+        
+        # 更新状态
+        query = self.search_input.text()
+        if not query.strip():
+            self.status_label.setText(f"Found {len(plugins)} plugins with topic:yr-plugin. Select one to view details.")
+        else:
+            self.status_label.setText(f"Found {len(plugins)} plugins matching: {query}. Select one to view details.")
+        
+        # 开始验证插件
+        self.validate_plugins(plugins)
+    
+    def validate_plugins(self, plugins):
+        """验证插件的兼容性"""
         # 创建验证线程
         self.validation_threads = []
         for plugin in plugins:
@@ -459,7 +601,17 @@ class YRPacmanWidget(QWidget):
         # 检查是否有选择特定版本
         current_data = self.version_combo.currentData()
         if current_data and isinstance(current_data, dict):
-            plugin_info['zipball_url'] = current_data['zipball_url']
+            # 如果选择了特定版本，显示资产选择对话框
+            dialog = AssetSelectionDialog(plugin_info['name'], current_data, self)
+            if dialog.exec_() == QDialog.Accepted and dialog.selected_url:
+                plugin_info['zipball_url'] = dialog.selected_url
+            else:
+                # 用户取消了操作
+                self.status_label.setText("Installation cancelled by user")
+                return
+        else:
+            # 使用默认分支的zipball
+            plugin_info['zipball_url'] = f"https://github.com/{plugin_info['full_name']}/archive/{plugin_info['default_branch']}.zip"
         
         self.status_label.setText(f"Installing {plugin_info['name']}...")
         self.progress_bar.setVisible(True)
@@ -496,6 +648,7 @@ class YRPacmanWidget(QWidget):
         QMessageBox.critical(self, "Installation Error", f"Failed to install plugin {plugin_name}: {error}")
     
     def refresh_results(self):
+        """刷新搜索结果"""
         self.search_plugins()
 
 
