@@ -23,7 +23,7 @@ sys.path.insert(0, BASE_DIR)
 
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QSplitter, 
                             QTreeWidget, QTreeWidgetItem, QWidget,
-                            QVBoxLayout, QLabel, QPushButton, QLineEdit, QSpinBox, QTextEdit, QComboBox, QProgressBar, QTabWidget)
+                            QVBoxLayout, QLabel, QPushButton, QLineEdit, QSpinBox, QTextEdit, QComboBox, QProgressBar, QTabWidget, QDockWidget)
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
 from PyQt5.QtWebChannel import QWebChannel
 from PyQt5.QtCore import Qt, QUrl, QSize
@@ -74,14 +74,9 @@ logging.getLogger().addHandler(buffered_handler)
 import numpy
 import pandas
 import matplotlib
-import seaborn
-import scipy
+# import seaborn
+# import scipy
 import Bio
-import Bio.Seq
-import Bio.SeqIO
-import Bio.SeqRecord
-import Bio.SeqFeature
-import Bio.SeqRecord
 import matplotlib.backends.backend_qt5agg
 import matplotlib.figure
 from plotnine import *
@@ -176,13 +171,31 @@ class MainWindow(QMainWindow):
         icon = QIcon("./icons/favicon.svg")
         self.setWindowIcon(icon)
 
-        splitter = QSplitter(Qt.Horizontal)
+        # 创建菜单栏
+        menubar = self.menuBar()
+        view_menu = menubar.addMenu('View')
+        
+        # 添加显示插件树的动作
+        self.toggle_dock_action = view_menu.addAction('Show Plugins Panel')
+        self.toggle_dock_action.setCheckable(True)
+        self.toggle_dock_action.setChecked(True)
+        self.toggle_dock_action.triggered.connect(self.toggle_plugin_dock)
+
+        # 创建停靠窗口用于插件树
+        self.plugin_dock = QDockWidget("Plugins", self)
+        self.plugin_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         
         self.plugin_tree = QTreeWidget()
         self.plugin_tree.setHeaderHidden(True)
         self.build_plugin_tree()
         self.plugin_tree.itemClicked.connect(self.load_plugin)
         
+        self.plugin_dock.setWidget(self.plugin_tree)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.plugin_dock)
+        
+        # 连接停靠窗口的可见性变化信号
+        self.plugin_dock.visibilityChanged.connect(self.on_dock_visibility_changed)
+
         self.tab_widget = QTabWidget()
         tab_bar = ChromeTabBar()
         self.tab_widget.setTabBar(tab_bar)
@@ -193,11 +206,7 @@ class MainWindow(QMainWindow):
         
         self.add_home_tab()
         
-        splitter.addWidget(self.plugin_tree)
-        splitter.addWidget(self.tab_widget)
-        splitter.setSizes([200, 1000])
-        
-        self.setCentralWidget(splitter)
+        self.setCentralWidget(self.tab_widget)
         
         self.setStyleSheet("""
             QWidget {
@@ -558,6 +567,17 @@ class MainWindow(QMainWindow):
         font_path = "fonts/MiSans-Medium.ttf"
         if QFontDatabase.addApplicationFont(font_path) == -1:
             logging.error("[ERROR] Failed to load fonts.")
+
+    def toggle_plugin_dock(self, checked):
+        """切换插件停靠窗口的显示/隐藏"""
+        if checked:
+            self.plugin_dock.show()
+        else:
+            self.plugin_dock.hide()
+
+    def on_dock_visibility_changed(self, visible):
+        """当停靠窗口可见性改变时更新菜单项状态"""
+        self.toggle_dock_action.setChecked(visible)
 
 class PluginWrapper:
     """插件包装器，兼容新的配置格式"""
