@@ -16,20 +16,18 @@ The main program of YRTools acts as a GUI wrapper for all its plugins, while plu
 
 If you are interested in the plugin development of YRTools, you may go to its Github Wiki for more information.
 
-## What's new in v0.0.2
+## What's new in v0.1.0
 
-In v0.0.2, there are several changes of the main program and the basic plugin set:
+v0.0.3 has several changes in the software's distribution.
 
-- YRTools has now become Anglicized.
-- From now on, YRTools supports a lightweight runtime environment management by **YR Runtime Manager**. You may create environments lighter than conda and use them to manage not only python site-packages, but also any scripts or binaries which are needed to be reused.
-- YR Debug Console to view logs in YRTool's UI.
-- YRTools now have an decentralized plugin package manager (YR-PacMan).
-- Supports new plugin format: polypyplug.
-- Several small changes of art design and icons.
+- YRTools is now portable via embedded Python, not pyinstaller packaging.
+- A new official plugin **YR-MPE**, for the discipline *Molecular Phylogenetics and Evolution*, set is now formally supported.
+- Scipy is removed from rigid dependencies, to reduce the size of the binary.
+- I am considering incoporating a volume-reduced **MSYS2** environment for Windows version, as YRTools will soon suppoer running **SPAdes** directly on Windows **MSYYS2** environment (but not via **WSL2**). Also, many biotools are relatively easy to compile and run with MSYS.
 
 ## Installation
 
-The source code of YRTools can be directly run on any platform with several site-package dependancies. If you want a portable solution, you can download its PyInstaller-packaged binary from **Release** page (Note: priority supply to Windows users) and place it into your mobile storage device.
+The source code of YRTools can be directly run on any platform with several site-package dependancies. If you want a portable solution, you can download its binary from **Release** page (Note: priority supply to Windows users) and place it into your mobile storage device.
 
 ## Licenses
 
@@ -38,10 +36,25 @@ The source code of YRTools can be directly run on any platform with several site
 
 All codes in this repository are distributed under the [**GNU General Public License 3.0 (GPL v3)** License](LICENSE). The core icons are distributed under the [**Creative Commons Attribution-ShareAlike (CC BY-SA) 4.0 International License**](LICENSE.icon)
 
+## The YRTools Biosoftware Ecosystem
+
+Below is a list of all the plugins and plugin sets currently planned or supported by YRTools. The planning plugin sets are shown as their dependencies are already successfully transplanted to Windows, and only need to implement the plugin interfaces and workflows.
+
+|Area|Plugin set|Functions|Status|
+|:--|:--|:--|:--|
+|**Molecular Phylogenetics and Evolution**|[YR-MPE](https://github.com/Gipsy-The-Sheller/YR-MPE)|16+ softwares covering sequence alignment (4), trimming (2), distance methods (1), maximum likelihood method (1), Bayesian inference (2), phylogenetic dating (1)|**Officially Supported**|
+|**Parametric Transcriptomics**|[YR-Trans](https://github.com/Gipsy-The-Sheller/YR-Trans)|HISAT2, FeatureCounts, PyDESeq2, Viz.|**On Development**|
+|**General HTS Data Analysis**|YR-HTS|HTSLib, bwa & bowtie, Samtools, bcftools, vcftools, freebayes, fastp & cutadapt|**Planning**|
+|**Genomics**|YR-Genomics|Genome Survey (Jellyfish), Genome Assembly (SPAdes, SKESA, Velvet), Organelle Genome Pipeline (GetOrganelle), tRNA Annotations (ARWEN, ARAGORN, tRNAScan-SE)|**Planning**|
+|**Comparative Genomics**|YR-CompGen|SNP Calling (Snippy), Reduced-Representation Genomics (ipyrad), Aligners (BLAST, LAST, BLAT, Mummer), Collinear Alignment (SibeliaZ, ProgressiveMauve), Alignment viz (JCVI, GBdraw), Ortholog Finder (Orthofinder), Phylogenomics (TreeMix, WASTER)|**Planning**|
+|**More features**| ...... | ...... |**Looking forward to your ideas and contributions.**|
+
 ## Bug Report
 
-You can report bugs at Github Issue or send an email to zjxmolls@outlook.com
+You can report bugs at Github Issue or send an email to zjxmolls@outlook.com.
 
 ## Citation
 
 YRTools hasn't had any publications or preprints. So if you use YRTools' plugins, please cite the Github repository of YRTools itself and the corresponding plugin / plugin set.
+
+You may cite specified literature when using some plugins.
