@@ -18,7 +18,7 @@ If you are interested in the plugin development of YRTools, you may go to its Gi
 
 ## What's new in v0.1.0
 
-v0.0.3 has several changes in the software's distribution.
+v0.1.0 has several changes in the software's distribution.
 
 - YRTools is now portable via embedded Python, not pyinstaller packaging.
 - A new official plugin **YR-MPE**, for the discipline *Molecular Phylogenetics and Evolution*, set is now formally supported.
