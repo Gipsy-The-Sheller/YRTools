@@ -14,10 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__version__ = "0.0.2 pre-release"
+__version__ = "0.0.2"
 
 import sys
 import os
+import site  # 添加 site 模块以支持外部包的正确加载
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 
@@ -36,8 +37,6 @@ import shlex
 from PyQt5.QtCore import pyqtSlot
 from configparser import ConfigParser
 import traceback
-from bs4 import BeautifulSoup
-from xml.etree import ElementTree as ET
 import datetime
 from core.custom_tabbar import ChromeTabBar
 import inspect
@@ -67,60 +66,7 @@ class BufferedHandler(logging.Handler):
 buffered_handler = BufferedHandler()
 logging.getLogger().addHandler(buffered_handler)
 
-# basic plugin dependencies
-## NOTE: This part may be removed from source code after the development of YRRuntimeManager
-## TODO: plugin - YRRuntimeManager
-
-import numpy
-import pandas
-import matplotlib
-import seaborn
-import scipy
-import Bio
-import Bio.Seq
-import Bio.SeqIO
-import Bio.SeqRecord
-import Bio.SeqFeature
-import Bio.SeqRecord
-import matplotlib.backends.backend_qt5agg
-import matplotlib.figure
-from plotnine import *
-
-# allow using customized python libraries
-try:
-    runtime_base_path = "runtime/base"
-    if os.path.exists(runtime_base_path):
-        # 扫描runtime/base目录中的所有模块
-        for item in os.listdir(runtime_base_path):
-            item_path = os.path.join(runtime_base_path, item)
-            if os.path.isdir(item_path):
-                # 检查是否为Python包（有__init__.py）
-                init_file = os.path.join(item_path, "__init__.py")
-                if os.path.exists(init_file):
-                    # Python Package: 添加到sys.path
-                    if item_path not in sys.path:
-                        sys.path.insert(0, item_path)
-                        logging.info(f"[INFO] Added Python package to sys.path: {item}")
-                else:
-                    # Common Module: 添加到sys.path和PATH环境变量
-                    if item_path not in sys.path:
-                        sys.path.insert(0, item_path)
-                        logging.info(f"[INFO] Added common module to sys.path: {item}")
-                    
-                    # 添加到PATH环境变量
-                    current_path = os.environ.get('PATH', '')
-                    if item_path not in current_path:
-                        if current_path:
-                            os.environ['PATH'] = item_path + os.pathsep + current_path
-                        else:
-                            os.environ['PATH'] = item_path
-                        logging.info(f"[INFO] Added common module to PATH: {item}")
-    else:
-        logging.warning("[WARN] Runtime base directory not found, creating...")
-        os.makedirs(runtime_base_path, exist_ok=True)
-except Exception as e:
-    logging.error(f"[ERROR] Failed to initialize runtime environment: {str(e)}")
-
+# 先配置日志系统，确保后续的 runtime 初始化日志能够正常输出
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s [%(threadName)s] %(name)s.%(funcName)s:%(lineno)d - %(levelname)s - %(message)s',
@@ -130,6 +76,49 @@ logging.basicConfig(
     ],
     force=True
 )
+
+# allow using customized python libraries
+try:
+    # 确定 runtime 基础路径
+    if getattr(sys, 'frozen', False):
+        # 打包后的环境：runtime 目录与 exe 在同一级
+        application_path = os.path.dirname(sys.executable)
+        runtime_base_path = os.path.join(application_path, 'runtime', 'base')
+    else:
+        # 开发环境
+        runtime_base_path = os.path.join(BASE_DIR, 'runtime', 'base')
+    
+    logging.info(f"[INFO] Runtime base path: {runtime_base_path}")
+    logging.info(f"[INFO] Application path: {application_path if getattr(sys, 'frozen', False) else BASE_DIR}")
+    
+    if os.path.exists(runtime_base_path):
+        # 使用 site.addsitedir() 来正确添加 runtime 目录
+        # 这会处理 .pth 文件、.egg 文件等，并且正确处理包的导入
+        if runtime_base_path not in sys.path:
+            site.addsitedir(runtime_base_path)
+            logging.info(f"[INFO] Added runtime base directory using site.addsitedir(): {runtime_base_path}")
+        
+        # 添加 .libs 目录到 PATH（二进制依赖）
+        for item in os.listdir(runtime_base_path):
+            item_path = os.path.join(runtime_base_path, item)
+            if os.path.isdir(item_path) and item.endswith('.libs'):
+                # 添加到PATH环境变量
+                current_path = os.environ.get('PATH', '')
+                if item_path not in current_path:
+                    if current_path:
+                        os.environ['PATH'] = item_path + os.pathsep + current_path
+                    else:
+                        os.environ['PATH'] = item_path
+                    logging.info(f"[INFO] Added .libs directory to PATH: {item}")
+        
+        logging.info(f"[INFO] Runtime initialization completed. Current sys.path: {sys.path[:10]}...")
+    else:
+        logging.warning(f"[WARN] Runtime base directory not found at {runtime_base_path}")
+        logging.info(f"[INFO] You can create this directory and add Python packages to it for flexible dependency management")
+except Exception as e:
+    logging.error(f"[ERROR] Failed to initialize runtime environment: {str(e)}")
+    import traceback
+    logging.error(traceback.format_exc())
 
 root_logger = logging.getLogger()
 root_logger.setLevel(logging.DEBUG)

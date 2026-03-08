@@ -3,4 +3,12 @@
 *.exe
 *.dll
 test_*.py
-./runtime
+/runtime
+/build
+/dist
+/msys64_2
+./msys64_2/*
+./python/*
+/python
+/release/*
+/release
